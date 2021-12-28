@@ -67,6 +67,8 @@ class Game:
         self.max_expanded_nodes_bf = 0
         self.max_expanded_nodes_uc = 0
 
+        self.a_star_path = []
+
     def enable_uniform_cost(self):
         self.uniform_cost_enable = True
 
@@ -152,7 +154,7 @@ class Game:
     def uniform_cost_search(spot):
         return spot.g_score
 
-    def find_a_star_path(self, open_list, closed_list, path, start_spot, end_spot, func, _color=None):
+    def find_a_star_path(self, open_list, closed_list, path, start_spot, end_spot, func):
         goal_reached = False
 
         while not goal_reached:
@@ -195,11 +197,6 @@ class Game:
 
             else:
                 raise IndexError
-
-        if _color:
-            for p in path:
-                if p is not start_spot:
-                    self.draw_spot(Spot(p.x, p.y, _color=_color))
 
     def run(self):
         snake_block_left = False
@@ -266,7 +263,6 @@ class Game:
                 if self.a_star_enable is True:
                     open_list = [Spot(self.head_of_snake_x, self.head_of_snake_y)]
                     closed_list = []
-                    path = []
                     start_spot = open_list[0]
                     end_spot = Spot(self.food_pos[0], self.food_pos[1])
 
@@ -275,64 +271,68 @@ class Game:
                     path_uc = []
                     elapsed_time_uc = None
 
-                    if self.uniform_cost_enable:
-                        try:
+                    try:
+                        if self.a_star_path:
+                            self.a_star_path.pop()
+                            # for p in self.a_star_path[1:]:
+                            #     if p is not start_spot:
+                            #         self.draw_spot(Spot(p.x, p.y, _color=self.A_STAR_COLOR))
+                        else:
                             t = time.process_time()
                             self.find_a_star_path(
-                                open_list_uc,
-                                closed_list_uc,
-                                path_uc,
+                                open_list,
+                                closed_list,
+                                self.a_star_path,
                                 start_spot,
                                 end_spot,
-                                self.uniform_cost_search,
+                                self.best_first_search,
                             )
-                            elapsed_time_uc = time.process_time() - t
-                        except (IndexError, AttributeError):
-                            print('Uniform cost search failed')
+                            elapsed_time = time.process_time() - t
 
-                    try:
-                        t = time.process_time()
-                        self.find_a_star_path(
-                            open_list,
-                            closed_list,
-                            path,
-                            start_spot,
-                            end_spot,
-                            self.best_first_search,
-                            self.A_STAR_COLOR
-                        )
-                        elapsed_time = time.process_time() - t
+                            if self.uniform_cost_enable:
+                                try:
+                                    t = time.process_time()
+                                    self.find_a_star_path(
+                                        open_list_uc,
+                                        closed_list_uc,
+                                        path_uc,
+                                        start_spot,
+                                        end_spot,
+                                        self.uniform_cost_search,
+                                    )
+                                    elapsed_time_uc = time.process_time() - t
+                                except (IndexError, AttributeError):
+                                    print('Uniform cost search failed')
 
-                        if self.uniform_cost_enable is False:
-                            if len(closed_list) > self.max_expanded_nodes_bf:
-                                self.max_expanded_nodes_bf = len(closed_list)
-                                print(f'Expanded nodes: {self.max_expanded_nodes_bf} ({elapsed_time})')
-                                print(f'Snake length: {self.snake_len + 1}')
-                        else:
-                            expanded_bf = len(closed_list)
-                            expanded_uc = len(closed_list_uc)
-                            display = False
+                                expanded_bf = len(closed_list)
+                                expanded_uc = len(closed_list_uc)
+                                display = False
 
-                            if expanded_bf > self.max_expanded_nodes_bf:
-                                display = True
-                                self.max_expanded_nodes_bf = expanded_bf
+                                if expanded_bf > self.max_expanded_nodes_bf:
+                                    display = True
+                                    self.max_expanded_nodes_bf = expanded_bf
 
-                            if expanded_uc > self.max_expanded_nodes_uc:
-                                display = True
-                                self.max_expanded_nodes_uc = expanded_uc
+                                if expanded_uc > self.max_expanded_nodes_uc:
+                                    display = True
+                                    self.max_expanded_nodes_uc = expanded_uc
 
-                            if display is True:
-                                print(
-                                    f'Expanded nodes (A*): {self.max_expanded_nodes_bf} ({elapsed_time})'
-                                )
-                                print(
-                                    f'Expanded nodes (Uniform Cost): {self.max_expanded_nodes_uc} ({elapsed_time_uc})'
-                                )
-                                print(f'Snake length: {self.snake_len + 1}')
+                                if display is True:
+                                    print(
+                                        f'Expanded nodes (A*): {self.max_expanded_nodes_bf} ({elapsed_time})'
+                                    )
+                                    print(
+                                        f'Expanded nodes (Uniform Cost): {self.max_expanded_nodes_uc} ({elapsed_time_uc})'
+                                    )
+                                    print(f'Snake length: {self.snake_len + 1}')
 
+                            else:
+                                if len(closed_list) > self.max_expanded_nodes_bf:
+                                    self.max_expanded_nodes_bf = len(closed_list)
+                                    print(f'Expanded nodes: {self.max_expanded_nodes_bf} ({elapsed_time})')
+                                    print(f'Snake length: {self.snake_len + 1}')
                         try:
-                            self.head_of_snake_x = path[-2].x
-                            self.head_of_snake_y = path[-2].y
+                            self.head_of_snake_x = self.a_star_path[-2].x
+                            self.head_of_snake_y = self.a_star_path[-2].y
 
                         except IndexError:
                             self.head_of_snake_x = self.food_pos[0]
@@ -385,6 +385,7 @@ class Game:
                 if self.food_pos == [self.head_of_snake_x, self.head_of_snake_y]:
                     self.snake_len += 1
                     self.score += 10
+                    self.a_star_path = []
                     self.snake_body_array.append([previous_head_pos_x, previous_head_pos_y])
                     self.food_pos = self.get_random_food_pos()
 
