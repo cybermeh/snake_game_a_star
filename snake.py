@@ -106,6 +106,10 @@ class Game:
         self.display.blit(score_text, text_rect)
 
     @staticmethod
+    def check_coord(spot, obstacle_list):
+        return spot not in obstacle_list and 0 <= spot[0] <= 680 and 0 <= spot[1] <= 580
+
+    @staticmethod
     def valid_places_to_go_a_star(current_spot_pos, obstacle_list):
         valid_places = []
 
@@ -114,27 +118,18 @@ class Game:
         top_of_curr_coord = [current_spot_pos[0], current_spot_pos[1] - 19]
         bottom_of_curr_coord = [current_spot_pos[0], current_spot_pos[1] + 19]
 
-        if (left_of_curr_coord not in obstacle_list) \
-                and (left_of_curr_coord[0] >= 0) and (left_of_curr_coord[0] <= 680) and (left_of_curr_coord[1] >= 0) \
-                and (left_of_curr_coord[1] <= 580):
+        if Game.check_coord(left_of_curr_coord, obstacle_list):
             valid_places.append(Spot(left_of_curr_coord[0], left_of_curr_coord[1]))
 
-        if (right_of_curr_coord not in obstacle_list) \
-                and (right_of_curr_coord[0] >= 0) and (right_of_curr_coord[0] <= 680) and (
-                right_of_curr_coord[1] >= 0) \
-                and (right_of_curr_coord[1] <= 580):
+        if Game.check_coord(right_of_curr_coord, obstacle_list):
             valid_places.append(Spot(right_of_curr_coord[0], right_of_curr_coord[1]))
 
-        if (top_of_curr_coord not in obstacle_list) \
-                and (top_of_curr_coord[0] >= 0) and (top_of_curr_coord[0] <= 680) and (top_of_curr_coord[1] >= 0) \
-                and (top_of_curr_coord[1] <= 580):
+        if Game.check_coord(top_of_curr_coord, obstacle_list):
             valid_places.append(Spot(top_of_curr_coord[0], top_of_curr_coord[1]))
 
-        if (bottom_of_curr_coord not in obstacle_list) \
-                and (bottom_of_curr_coord[0] >= 0) and (bottom_of_curr_coord[0] <= 680) and (
-                bottom_of_curr_coord[1] >= 0) \
-                and (bottom_of_curr_coord[1] <= 580):
+        if Game.check_coord(bottom_of_curr_coord, obstacle_list):
             valid_places.append(Spot(bottom_of_curr_coord[0], bottom_of_curr_coord[1]))
+
         return valid_places
 
     @staticmethod
@@ -434,6 +429,3 @@ class Game:
 
             pygame.display.update()
             self.clock.tick(self.FPS)
-
-
-
