@@ -39,7 +39,7 @@ class Game:
     SNAKE_INITIAL_POS = [0, 0]
     GAME_OVER_FONT_COLOR = (255, 255, 255)
     RED = (255, 0, 0)
-    FPS = 11
+    FPS = 30
 
     def __init__(self):
         pygame.init()
@@ -198,6 +198,123 @@ class Game:
             else:
                 raise IndexError
 
+    def run_a_star(self, head_x_change, head_y_change, force=False):
+        if self.a_star_enable is True:
+            open_list = [Spot(self.head_of_snake_x, self.head_of_snake_y)]
+            closed_list = []
+            start_spot = open_list[0]
+            end_spot = Spot(self.food_pos[0], self.food_pos[1])
+
+            open_list_uc = [Spot(self.head_of_snake_x, self.head_of_snake_y)]
+            closed_list_uc = []
+            path_uc = []
+            elapsed_time_uc = None
+
+            try:
+                if force is False and self.a_star_path:
+                    self.a_star_path.pop()
+                    pass
+                    # for p in self.a_star_path[1:]:
+                    #     if p is not start_spot:
+                    #         self.draw_spot(Spot(p.x, p.y, _color=self.A_STAR_COLOR))
+                else:
+                    # print('Run a star')
+                    t = time.process_time()
+                    self.find_a_star_path(
+                        open_list,
+                        closed_list,
+                        self.a_star_path,
+                        start_spot,
+                        end_spot,
+                        self.best_first_search,
+                    )
+                    elapsed_time = time.process_time() - t
+
+                    if self.uniform_cost_enable:
+                        try:
+                            t = time.process_time()
+                            self.find_a_star_path(
+                                open_list_uc,
+                                closed_list_uc,
+                                path_uc,
+                                start_spot,
+                                end_spot,
+                                self.uniform_cost_search,
+                            )
+                            elapsed_time_uc = time.process_time() - t
+                        except (IndexError, AttributeError):
+                            print('Uniform cost search failed')
+
+                        expanded_bf = len(closed_list)
+                        expanded_uc = len(closed_list_uc)
+                        display = False
+
+                        if expanded_bf > self.max_expanded_nodes_bf:
+                            display = True
+                            self.max_expanded_nodes_bf = expanded_bf
+
+                        if expanded_uc > self.max_expanded_nodes_uc:
+                            display = True
+                            self.max_expanded_nodes_uc = expanded_uc
+
+                        if display is True:
+                            print(
+                                f'Expanded nodes (A*): {self.max_expanded_nodes_bf} ({elapsed_time})'
+                            )
+                            print(
+                                f'Expanded nodes (Uniform Cost): {self.max_expanded_nodes_uc} ({elapsed_time_uc})'
+                            )
+                            print(f'Snake length: {self.snake_len + 1}')
+
+                    else:
+                        if len(closed_list) > self.max_expanded_nodes_bf:
+                            self.max_expanded_nodes_bf = len(closed_list)
+                            print(f'Expanded nodes: {self.max_expanded_nodes_bf} ({elapsed_time})')
+                            print(f'Snake length: {self.snake_len + 1}')
+                try:
+                    self.head_of_snake_x = self.a_star_path[-2].x
+                    self.head_of_snake_y = self.a_star_path[-2].y
+
+                except IndexError:
+                    self.head_of_snake_x = self.food_pos[0]
+                    self.head_of_snake_y = self.food_pos[1]
+
+            except IndexError:
+                try:
+                    valid_places = self.valid_places_to_go_a_star(
+                        [self.head_of_snake_x, self.head_of_snake_y],
+                        self.snake_body_array
+                    )
+                    rand_place = self.pick_random_valid_place(valid_places)
+                    try:
+                        self.head_of_snake_x = rand_place.x
+                        self.head_of_snake_y = rand_place.y
+                    except AttributeError:
+                        if force is False:
+                            self.run_a_star(head_x_change, head_y_change, force=True)
+                        self.lost = True
+                        self.choice_made = False
+                        self.a_star_enable = False
+                        self.game_over()
+                except IndexError:
+                    if force is False:
+                        self.run_a_star(head_x_change, head_y_change, force=True)
+
+                    self.lost = True
+                    self.choice_made = False
+                    self.a_star_enable = False
+                    self.game_over()
+
+        else:
+            self.head_of_snake_x += head_x_change
+            self.head_of_snake_y += head_y_change
+
+        if self.head_of_snake_x != self.snake_body_array[0][0] and self.head_of_snake_y != self.snake_body_array[0][1]:
+            self.run_a_star(head_x_change, head_y_change, force=True)
+
+        self.snake_body_array[0][0] = self.head_of_snake_x
+        self.snake_body_array[0][1] = self.head_of_snake_y
+
     def run(self):
         snake_block_left = False
         snake_block_right = False
@@ -260,111 +377,7 @@ class Game:
             if self.choice_made:
                 self.display.fill(self.BG_COLOR)
 
-                if self.a_star_enable is True:
-                    open_list = [Spot(self.head_of_snake_x, self.head_of_snake_y)]
-                    closed_list = []
-                    start_spot = open_list[0]
-                    end_spot = Spot(self.food_pos[0], self.food_pos[1])
-
-                    open_list_uc = [Spot(self.head_of_snake_x, self.head_of_snake_y)]
-                    closed_list_uc = []
-                    path_uc = []
-                    elapsed_time_uc = None
-
-                    try:
-                        if self.a_star_path:
-                            self.a_star_path.pop()
-                            # for p in self.a_star_path[1:]:
-                            #     if p is not start_spot:
-                            #         self.draw_spot(Spot(p.x, p.y, _color=self.A_STAR_COLOR))
-                        else:
-                            t = time.process_time()
-                            self.find_a_star_path(
-                                open_list,
-                                closed_list,
-                                self.a_star_path,
-                                start_spot,
-                                end_spot,
-                                self.best_first_search,
-                            )
-                            elapsed_time = time.process_time() - t
-
-                            if self.uniform_cost_enable:
-                                try:
-                                    t = time.process_time()
-                                    self.find_a_star_path(
-                                        open_list_uc,
-                                        closed_list_uc,
-                                        path_uc,
-                                        start_spot,
-                                        end_spot,
-                                        self.uniform_cost_search,
-                                    )
-                                    elapsed_time_uc = time.process_time() - t
-                                except (IndexError, AttributeError):
-                                    print('Uniform cost search failed')
-
-                                expanded_bf = len(closed_list)
-                                expanded_uc = len(closed_list_uc)
-                                display = False
-
-                                if expanded_bf > self.max_expanded_nodes_bf:
-                                    display = True
-                                    self.max_expanded_nodes_bf = expanded_bf
-
-                                if expanded_uc > self.max_expanded_nodes_uc:
-                                    display = True
-                                    self.max_expanded_nodes_uc = expanded_uc
-
-                                if display is True:
-                                    print(
-                                        f'Expanded nodes (A*): {self.max_expanded_nodes_bf} ({elapsed_time})'
-                                    )
-                                    print(
-                                        f'Expanded nodes (Uniform Cost): {self.max_expanded_nodes_uc} ({elapsed_time_uc})'
-                                    )
-                                    print(f'Snake length: {self.snake_len + 1}')
-
-                            else:
-                                if len(closed_list) > self.max_expanded_nodes_bf:
-                                    self.max_expanded_nodes_bf = len(closed_list)
-                                    print(f'Expanded nodes: {self.max_expanded_nodes_bf} ({elapsed_time})')
-                                    print(f'Snake length: {self.snake_len + 1}')
-                        try:
-                            self.head_of_snake_x = self.a_star_path[-2].x
-                            self.head_of_snake_y = self.a_star_path[-2].y
-
-                        except IndexError:
-                            self.head_of_snake_x = self.food_pos[0]
-                            self.head_of_snake_y = self.food_pos[1]
-
-                    except IndexError:
-                        try:
-                            valid_places = self.valid_places_to_go_a_star(
-                                [self.head_of_snake_x, self.head_of_snake_y],
-                                self.snake_body_array
-                            )
-                            rand_place = self.pick_random_valid_place(valid_places)
-                            try:
-                                self.head_of_snake_x = rand_place.x
-                                self.head_of_snake_y = rand_place.y
-                            except AttributeError:
-                                self.lost = True
-                                self.choice_made = False
-                                self.a_star_enable = False
-                                self.game_over()
-                        except IndexError:
-                            self.lost = True
-                            self.choice_made = False
-                            self.a_star_enable = False
-                            self.game_over()
-
-                else:
-                    self.head_of_snake_x += head_x_change
-                    self.head_of_snake_y += head_y_change
-
-                self.snake_body_array[0][0] = self.head_of_snake_x
-                self.snake_body_array[0][1] = self.head_of_snake_y
+                self.run_a_star(head_x_change, head_y_change)
 
                 self.draw_snake()
                 self.display_score()
